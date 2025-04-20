@@ -7,7 +7,8 @@ import android.graphics.RectF;
 
 public class Tile {
 
-    private float x, y;
+    private float x;
+    private float y;
     private float size;
     private boolean occupied = false;
 
@@ -18,12 +19,14 @@ public class Tile {
     }
 
     public void draw(Canvas canvas, Paint paint) {
+        // Fill the tile
         paint.setColor(occupied ? Color.DKGRAY : Color.LTGRAY);
         paint.setStyle(Paint.Style.FILL);
 
         RectF rect = new RectF(x, y, x + size, y + size);
-        canvas.drawRoundRect(rect, 10, 10, paint);
+        canvas.drawRoundRect(rect, 10, 10, paint); // rounded corners
 
+        // Draw tile border
         paint.setColor(Color.BLACK);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(2);
@@ -38,9 +41,15 @@ public class Tile {
         return occupied;
     }
 
-    public float getX() { return x; }
+    public float getX() {
+        return x;
+    }
 
-    public float getY() { return y; }
+    public float getY() {
+        return y;
+    }
 
-    public float getSize() { return size; }
+    public float getSize() {
+        return size;
+    }
 }
