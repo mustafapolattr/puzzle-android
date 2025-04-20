@@ -20,7 +20,8 @@ public class GameView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        canvas.drawColor(Color.rgb(181, 177, 124)); // Arka plan rengi (#B4B17C)
-        // Gelecekte grid ve blokları da burada çizeceğiz
+        gameController.draw(canvas);
+        invalidate(); // Sürekli yeniden çiz
     }
+
 }
