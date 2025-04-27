@@ -2,6 +2,7 @@ package com.example.puzzle_android.ui;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.view.MotionEvent;
 import android.view.View;
 
 import com.example.puzzle_android.game.GameController;
@@ -31,5 +32,13 @@ public class GameView extends View {
         }
 
         invalidate(); // sürekli yeniden çizim
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        if (gameController != null) {
+            gameController.handleTouchEvent(event);
+        }
+        return true;
     }
 }

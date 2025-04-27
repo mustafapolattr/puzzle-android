@@ -45,4 +45,19 @@ public class Block {
             }
         }
     }
+    public float getX() {
+        return x;
+    }
+
+    public float getY() {
+        return y;
+    }
+
+    public float getCellSize() {
+        return cellSize;
+    }
+
+    public BlockShape getShape() {
+        return shape;
+    }
 }

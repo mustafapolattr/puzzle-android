@@ -6,6 +6,7 @@ import com.example.puzzle_android.ui.GameView;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import android.view.MotionEvent;
 
 public class GameController {
 
@@ -16,6 +17,8 @@ public class GameController {
     private float margin = 5; // tile'lar arası boşluk
     private GameView gameView;
     private List<Block> blocks = new ArrayList<>();
+    private Block selectedBlock = null;
+    private float offsetX, offsetY;
 
     public GameController(GameView gameView) {
         this.gameView = gameView;
@@ -88,5 +91,40 @@ public class GameController {
             blocks.add(block);
         }
     }
+
+    public void handleTouchEvent(MotionEvent event) {
+        float touchX = event.getX();
+        float touchY = event.getY();
+
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                // Parmağın ilk dokunduğu anda hangi bloğun altında olduğunu kontrol et
+                for (Block block : blocks) {
+                    float left = block.getX();
+                    float top = block.getY();
+                    float right = left + block.getShape().getCols() * block.getCellSize();
+                    float bottom = top + block.getShape().getRows() * block.getCellSize();
+
+                    if (touchX >= left && touchX <= right && touchY >= top && touchY <= bottom) {
+                        selectedBlock = block;
+                        offsetX = touchX - left;
+                        offsetY = touchY - top;
+                        break;
+                    }
+                }
+                break;
+
+            case MotionEvent.ACTION_MOVE:
+                if (selectedBlock != null) {
+                    selectedBlock.setPosition(touchX - offsetX, touchY - offsetY);
+                }
+                break;
+
+            case MotionEvent.ACTION_UP:
+                selectedBlock = null;
+                break;
+        }
+    }
+
 
 }
