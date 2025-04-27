@@ -88,6 +88,8 @@ public class GameController {
             BlockShape randomShape = shapes.get(random.nextInt(shapes.size()));
             Block block = new Block(randomShape, cellSize);
             block.setPosition(startX + (i * 3 * cellSize), startY);
+            block.saveOriginalPosition();
+            blocks.add(block);
             blocks.add(block);
         }
     }
@@ -98,7 +100,6 @@ public class GameController {
 
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
-                // Parmağın ilk dokunduğu anda hangi bloğun altında olduğunu kontrol et
                 for (Block block : blocks) {
                     float left = block.getX();
                     float top = block.getY();
@@ -109,6 +110,7 @@ public class GameController {
                         selectedBlock = block;
                         offsetX = touchX - left;
                         offsetY = touchY - top;
+                        selectedBlock.saveOriginalPosition(); // 💥 BU SATIRI EKLE!
                         break;
                     }
                 }
@@ -122,12 +124,13 @@ public class GameController {
 
             case MotionEvent.ACTION_UP:
                 if (selectedBlock != null) {
-                    if (tryPlaceBlock(selectedBlock)) {
-                        // Başarılı yerleştirildiyse bloğu sahneden kaldır
-                        blocks.remove(selectedBlock);
+                    if (tryPlaceBlock(selectedBlock, event.getX(), event.getY())) {
+                        blocks.remove(selectedBlock); // 💥 Başarıyla yerleştiyse hemen sil
+                        if (blocks.isEmpty()) {
+                            createBlocks();
+                        }
                     } else {
-                        // Başarısızsa geri eski pozisyona dön
-                        selectedBlock.resetPosition();
+                        selectedBlock.resetPosition(); // Yerleşemediyse eski yerine dön
                     }
                     selectedBlock = null;
                 }
@@ -135,44 +138,113 @@ public class GameController {
         }
     }
 
-    private boolean tryPlaceBlock(Block block) {
-        float blockX = block.getX();
-        float blockY = block.getY();
+    private boolean tryPlaceBlock(Block block, float touchX, float touchY) {
         float cellSize = block.getCellSize();
         BlockShape shape = block.getShape();
 
-        for (int startRow = 0; startRow <= GRID_SIZE - shape.getRows(); startRow++) {
-            for (int startCol = 0; startCol <= GRID_SIZE - shape.getCols(); startCol++) {
-                boolean canPlace = true;
+        for (int row = 0; row < GRID_SIZE; row++) {
+            for (int col = 0; col < GRID_SIZE; col++) {
+                Tile tile = tiles[row][col];
+                float tileCenterX = tile.getX() + tile.getSize() / 2;
+                float tileCenterY = tile.getY() + tile.getSize() / 2;
 
-                for (int row = 0; row < shape.getRows(); row++) {
-                    for (int col = 0; col < shape.getCols(); col++) {
-                        if (shape.getShape()[row][col]) {
-                            Tile tile = tiles[startRow + row][startCol + col];
-                            if (tile.isOccupied()) {
-                                canPlace = false;
-                                break;
-                            }
-                        }
-                    }
-                    if (!canPlace) break;
-                }
+                float distance = (float) Math.sqrt(Math.pow(touchX - tileCenterX, 2) + Math.pow(touchY - tileCenterY, 2));
+                if (distance < cellSize) {
+                    if (canPlaceBlockAt(row, col, block)) {
+                        placeBlockAt(row, col, block);
 
-                if (canPlace) {
-                    // Yerleştir
-                    for (int row = 0; row < shape.getRows(); row++) {
-                        for (int col = 0; col < shape.getCols(); col++) {
-                            if (shape.getShape()[row][col]) {
-                                Tile tile = tiles[startRow + row][startCol + col];
-                                tile.setOccupied(true);
-                            }
-                        }
+                        // 💥 Bloğu burada hemen sahneden kaldırıyoruz
+                        blocks.remove(block);
+
+                        return true;
+                    } else {
+                        return false;
                     }
-                    return true;
                 }
             }
         }
         return false;
+    }
+
+    private boolean canPlaceBlockAt(int startRow, int startCol, Block block) {
+        BlockShape shape = block.getShape();
+
+        // Grid dışına taşma kontrolü
+        if (startRow + shape.getRows() > GRID_SIZE || startCol + shape.getCols() > GRID_SIZE) {
+            return false;
+        }
+
+        // Her hücre için doluluk kontrolü
+        for (int row = 0; row < shape.getRows(); row++) {
+            for (int col = 0; col < shape.getCols(); col++) {
+                if (shape.getShape()[row][col]) {
+                    if (tiles[startRow + row][startCol + col].isOccupied()) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    private void placeBlockAt(int startRow, int startCol, Block block) {
+        BlockShape shape = block.getShape();
+
+        for (int row = 0; row < shape.getRows(); row++) {
+            for (int col = 0; col < shape.getCols(); col++) {
+                if (shape.getShape()[row][col]) {
+                    tiles[startRow + row][startCol + col].setOccupied(true);
+                }
+            }
+        }
+        checkAndClearLines(); // Blok yerleşince satır/sütun kontrolü
+    }
+
+    private void checkAndClearLines() {
+        List<Integer> fullRows = new ArrayList<>();
+        List<Integer> fullCols = new ArrayList<>();
+
+        // Satırları kontrol et
+        for (int row = 0; row < GRID_SIZE; row++) {
+            boolean fullRow = true;
+            for (int col = 0; col < GRID_SIZE; col++) {
+                if (!tiles[row][col].isOccupied()) {
+                    fullRow = false;
+                    break;
+                }
+            }
+            if (fullRow) {
+                fullRows.add(row);
+            }
+        }
+
+        // Sütunları kontrol et
+        for (int col = 0; col < GRID_SIZE; col++) {
+            boolean fullCol = true;
+            for (int row = 0; row < GRID_SIZE; row++) {
+                if (!tiles[row][col].isOccupied()) {
+                    fullCol = false;
+                    break;
+                }
+            }
+            if (fullCol) {
+                fullCols.add(col);
+            }
+        }
+
+        // Satırları temizle
+        for (int row : fullRows) {
+            for (int col = 0; col < GRID_SIZE; col++) {
+                tiles[row][col].setOccupied(false);
+            }
+        }
+
+        // Sütunları temizle
+        for (int col : fullCols) {
+            for (int row = 0; row < GRID_SIZE; row++) {
+                tiles[row][col].setOccupied(false);
+            }
+        }
     }
 
 }
