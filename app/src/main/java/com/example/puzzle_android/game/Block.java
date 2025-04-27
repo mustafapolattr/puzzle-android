@@ -10,6 +10,8 @@ public class Block {
     private float x, y;
     private BlockShape shape;
     private float cellSize;
+    private float originalX;
+    private float originalY;
 
     public Block(BlockShape shape, float cellSize) {
         this.shape = shape;
@@ -19,6 +21,16 @@ public class Block {
     public void setPosition(float x, float y) {
         this.x = x;
         this.y = y;
+    }
+
+    public void saveOriginalPosition() {
+        this.originalX = x;
+        this.originalY = y;
+    }
+
+    public void resetPosition() {
+        this.x = originalX;
+        this.y = originalY;
     }
 
     public void draw(Canvas canvas, Paint paint) {

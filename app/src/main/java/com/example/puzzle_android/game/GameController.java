@@ -121,10 +121,58 @@ public class GameController {
                 break;
 
             case MotionEvent.ACTION_UP:
-                selectedBlock = null;
+                if (selectedBlock != null) {
+                    if (tryPlaceBlock(selectedBlock)) {
+                        // Başarılı yerleştirildiyse bloğu sahneden kaldır
+                        blocks.remove(selectedBlock);
+                    } else {
+                        // Başarısızsa geri eski pozisyona dön
+                        selectedBlock.resetPosition();
+                    }
+                    selectedBlock = null;
+                }
                 break;
         }
     }
 
+    private boolean tryPlaceBlock(Block block) {
+        float blockX = block.getX();
+        float blockY = block.getY();
+        float cellSize = block.getCellSize();
+        BlockShape shape = block.getShape();
+
+        for (int startRow = 0; startRow <= GRID_SIZE - shape.getRows(); startRow++) {
+            for (int startCol = 0; startCol <= GRID_SIZE - shape.getCols(); startCol++) {
+                boolean canPlace = true;
+
+                for (int row = 0; row < shape.getRows(); row++) {
+                    for (int col = 0; col < shape.getCols(); col++) {
+                        if (shape.getShape()[row][col]) {
+                            Tile tile = tiles[startRow + row][startCol + col];
+                            if (tile.isOccupied()) {
+                                canPlace = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (!canPlace) break;
+                }
+
+                if (canPlace) {
+                    // Yerleştir
+                    for (int row = 0; row < shape.getRows(); row++) {
+                        for (int col = 0; col < shape.getCols(); col++) {
+                            if (shape.getShape()[row][col]) {
+                                Tile tile = tiles[startRow + row][startCol + col];
+                                tile.setOccupied(true);
+                            }
+                        }
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
 }
