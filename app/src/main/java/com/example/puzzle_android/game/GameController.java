@@ -19,6 +19,7 @@ public class GameController {
     private List<Block> blocks = new ArrayList<>();
     private Block selectedBlock = null;
     private float offsetX, offsetY;
+    private int score = 0;
 
     public GameController(GameView gameView) {
         this.gameView = gameView;
@@ -70,26 +71,36 @@ public class GameController {
 
     private void createBlocks() {
         blocks.clear();
-
-        List<BlockShape> shapes = BlockShapeFactory.basicShapes();
         Random random = new Random();
+
+        List<BlockShape> availableShapes = new ArrayList<>();
+
+        if (score < 50) {
+            availableShapes.addAll(BlockShapeFactory.easyShapes());
+        } else if (score < 100) {
+            availableShapes.addAll(BlockShapeFactory.easyShapes());
+            availableShapes.addAll(BlockShapeFactory.mediumShapes());
+        } else {
+            availableShapes.addAll(BlockShapeFactory.easyShapes());
+            availableShapes.addAll(BlockShapeFactory.mediumShapes());
+            availableShapes.addAll(BlockShapeFactory.hardShapes());
+        }
 
         int canvasWidth = gameView.getWidth();
         int canvasHeight = gameView.getHeight();
         float screenWidth = Math.min(canvasWidth, canvasHeight);
 
-        float cellSize = (screenWidth * 0.1f); // Blok hücre boyutu
+        float cellSize = (screenWidth * 0.1f); // Hücre boyutu
 
         int blockCount = 3;
         float startX = (canvasWidth - (blockCount * 3 * cellSize)) / 2f;
-        float startY = canvasHeight * 0.1f; // Alt kısım
+        float startY = canvasHeight * 0.1f;
 
         for (int i = 0; i < blockCount; i++) {
-            BlockShape randomShape = shapes.get(random.nextInt(shapes.size()));
+            BlockShape randomShape = availableShapes.get(random.nextInt(availableShapes.size()));
             Block block = new Block(randomShape, cellSize);
             block.setPosition(startX + (i * 3 * cellSize), startY);
             block.saveOriginalPosition();
-            blocks.add(block);
             blocks.add(block);
         }
     }
@@ -125,17 +136,24 @@ public class GameController {
             case MotionEvent.ACTION_UP:
                 if (selectedBlock != null) {
                     if (tryPlaceBlock(selectedBlock, event.getX(), event.getY())) {
-                        blocks.remove(selectedBlock); // 💥 Başarıyla yerleştiyse hemen sil
-                        if (blocks.isEmpty()) {
-                            createBlocks();
-                        }
+                        blocks.remove(selectedBlock);
                     } else {
-                        selectedBlock.resetPosition(); // Yerleşemediyse eski yerine dön
+                        selectedBlock.resetPosition();
                     }
+
+                    if (blocks.isEmpty()) {
+                        createBlocks();
+                    }
+
+                    if (!canAnyBlockBePlaced()) {
+                        showGameOver();
+                    }
+
                     selectedBlock = null;
                 }
                 break;
         }
+
     }
 
     private boolean tryPlaceBlock(Block block, float touchX, float touchY) {
@@ -153,7 +171,6 @@ public class GameController {
                     if (canPlaceBlockAt(row, col, block)) {
                         placeBlockAt(row, col, block);
 
-                        // 💥 Bloğu burada hemen sahneden kaldırıyoruz
                         blocks.remove(block);
 
                         return true;
@@ -168,24 +185,26 @@ public class GameController {
 
     private boolean canPlaceBlockAt(int startRow, int startCol, Block block) {
         BlockShape shape = block.getShape();
+        boolean[][] pattern = shape.getShape();
+        int shapeRows = pattern.length;
+        int shapeCols = pattern[0].length;
 
-        // Grid dışına taşma kontrolü
-        if (startRow + shape.getRows() > GRID_SIZE || startCol + shape.getCols() > GRID_SIZE) {
-            return false;
+        if (startRow + shapeRows > GRID_SIZE || startCol + shapeCols > GRID_SIZE) {
+            return false; // Grid dışına taşıyor
         }
 
-        // Her hücre için doluluk kontrolü
-        for (int row = 0; row < shape.getRows(); row++) {
-            for (int col = 0; col < shape.getCols(); col++) {
-                if (shape.getShape()[row][col]) {
+        for (int row = 0; row < shapeRows; row++) {
+            for (int col = 0; col < shapeCols; col++) {
+                if (pattern[row][col]) { // Blokta bu hücre aktifse
                     if (tiles[startRow + row][startCol + col].isOccupied()) {
-                        return false;
+                        return false; // Grid hücresi doluysa yerleşemez
                     }
                 }
             }
         }
-        return true;
+        return true; // Her şey uygunsa yerleşebilir
     }
+
 
     private void placeBlockAt(int startRow, int startCol, Block block) {
         BlockShape shape = block.getShape();
@@ -204,7 +223,6 @@ public class GameController {
         List<Integer> fullRows = new ArrayList<>();
         List<Integer> fullCols = new ArrayList<>();
 
-        // Satırları kontrol et
         for (int row = 0; row < GRID_SIZE; row++) {
             boolean fullRow = true;
             for (int col = 0; col < GRID_SIZE; col++) {
@@ -218,7 +236,6 @@ public class GameController {
             }
         }
 
-        // Sütunları kontrol et
         for (int col = 0; col < GRID_SIZE; col++) {
             boolean fullCol = true;
             for (int row = 0; row < GRID_SIZE; row++) {
@@ -245,6 +262,57 @@ public class GameController {
                 tiles[row][col].setOccupied(false);
             }
         }
+
+        // Skoru güncelle
+        int totalCleared = fullRows.size() + fullCols.size();
+        if (totalCleared > 0) {
+            score += totalCleared * 10; // Örnek: her satır/sütun için +10 puan
+        }
     }
 
+
+    private boolean canAnyBlockBePlaced() {
+        for (Block block : blocks) {
+            BlockShape shape = block.getShape();
+            int shapeRows = shape.getRows();
+            int shapeCols = shape.getCols();
+
+            for (int startRow = 0; startRow <= GRID_SIZE - shapeRows; startRow++) {
+                for (int startCol = 0; startCol <= GRID_SIZE - shapeCols; startCol++) {
+                    if (canPlaceBlockAt(startRow, startCol, block)) {
+                        return true; // Yerleştirilebiliyor
+                    }
+                }
+            }
+        }
+        return false; // Hiçbir yere yerleşemiyor
+    }
+
+
+    private void showGameOver() {
+        new android.app.AlertDialog.Builder(gameView.getContext())
+                .setTitle("Game Over")
+                .setMessage("No more moves available!")
+                .setCancelable(false)
+                .setPositiveButton("Restart", (dialog, which) -> {
+                    restartGame();
+                })
+                .setNegativeButton("Exit", (dialog, which) -> {
+                    // Şu an için çıkmak istiyorsa sadece dialog kapansın
+                    dialog.dismiss();
+                })
+                .show();
+    }
+
+    private void restartGame() {
+        // Tüm tiles'ı boşalt
+        for (int row = 0; row < GRID_SIZE; row++) {
+            for (int col = 0; col < GRID_SIZE; col++) {
+                tiles[row][col].setOccupied(false);
+            }
+        }
+        blocks.clear();
+        createBlocks();
+        score = 0;
+    }
 }
